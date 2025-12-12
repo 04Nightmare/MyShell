@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use pathsearch::find_executable_in_path;
 
 fn main() {
     let builtin_commands = vec!["exit", "echo", "type"];
@@ -15,15 +16,11 @@ fn main() {
             println!("{}",command.split_off(5).trim());
         }else if command.trim().starts_with("type"){
             let arg = command.split_off(5).trim().to_string();
-            let mut found = false;
-            for item in &builtin_commands{
-                if item == &arg{
-                    println!("{} is a shell builtin", arg);
-                    found = true;
-                    break;
-                }
-            }
-            if !found{
+            if builtin_commands.contains(&arg.as_str()){
+                println!("{} is a shell builtin", arg);
+            }else if let Some(path) = find_executable_in_path(&arg){
+                println!("{} is {}", arg, path.display());
+            }else{
                 println!("{}: not found", arg);
             }
         }else{
@@ -31,5 +28,7 @@ fn main() {
         }
     }
 }
+
+
 
 
