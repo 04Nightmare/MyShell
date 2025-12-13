@@ -3,48 +3,59 @@ use std::io::{self, Write};
 use std::process::Command;
 use pathsearch::find_executable_in_path;
 
+const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type"];
 fn main() {
-    let builtin_commands = vec!["exit", "echo", "type"];
     loop{
         print!("$ ");
         io::stdout().flush().unwrap();
     
-        let mut command = String::new();
-        io::stdin().read_line(&mut command).unwrap();
-        let trimmed_command = command.trim();
-        if trimmed_command == "exit" {
-            break;
-        }else if trimmed_command.starts_with("echo") {
-            println!("{}",command.split_off(5).trim());
-        }else if trimmed_command.starts_with("type"){
-            let arg = command.split_off(5).trim().to_string();
-            if builtin_commands.contains(&arg.as_str()){
-                println!("{} is a shell builtin", arg);
-            }else if let Some(path) = find_executable_in_path(&arg){
-                println!("{} is {}", arg, path.display());
-            }else{
-                println!("{}: not found", arg);
-            }
-        }else {
-            let command_split: Vec<&str> = trimmed_command.split_whitespace().collect();
-            if command_split.is_empty(){
-                println!("{}: command not", trimmed_command);
-            }else{
-                let dynamic_args = &command_split[1..];
-                let output = Command::new(command_split[0])
-                    .args(dynamic_args)
-                    .output();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
 
-                match output {
-                    Ok(output) => {println!("{:?}",output.stdout.as_slice());}
-                    Err(_) => {println!("{}: command not found", trimmed_command)}
-                }
-                
-            }
+        let shell_command: Vec<&str> = input.trim().split_whitespace().collect();
+        let args = &shell_command[1..];
+
+        match shell_command[0]{
+            "exit" => break,
+            "echo" => echo_command(args),
+            "type" => type_command(args),
+            _ => check_command(&input),
         }
     }
 }
 
 
+fn echo_command(args: &[&str]){
+    println!("{}", args.join(" "));
+}
+
+fn type_command(args: &[&str]){
+    if !args.is_empty() && BUILTIN_COMMANDS.contains(&args[0]){
+        println!("{} is a shell builtin", args[0]);
+    }else if !args.is_empty(){
+        if let Some(path) = find_executable_in_path(&args[0]){
+            println!("{} is {}", args[0], path.display());
+        }
+    }else{
+        println!("{}: not found", args[0]);
+    }
+}
+
+
+fn check_command(cmd: &str){
+    let command_split: Vec<&str> = cmd.split_whitespace().collect();
+    let dynamic_args = &command_split[1..];
+    if command_split.is_empty(){
+        println!("{}: command not found", cmd);
+    }else{
+        let mut output = Command::new(command_split[0])
+            .args(dynamic_args)
+            .spawn()
+            .unwrap();
+        output.wait().unwrap();
+        return;
+    }
+    println!("{}: command not found", &command_split[0])
+}
 
 
