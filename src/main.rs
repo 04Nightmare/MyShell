@@ -4,7 +4,7 @@ use std::env;
 use std::process::Command;
 use pathsearch::find_executable_in_path;
 
-const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type"];
+const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd"];
 fn main() {
     loop{
         print!("$ ");
