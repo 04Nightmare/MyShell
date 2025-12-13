@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::env;
 use std::process::Command;
 use pathsearch::find_executable_in_path;
 
@@ -22,9 +23,19 @@ fn main() {
                 "exit" => break,
                 "echo" => echo_command(args),
                 "type" => type_command(args),
+                "pwd" => pwd_command(),
                 _ => check_command(&input),
             }
         }
+    }
+}
+
+
+fn pwd_command(){
+    let current_path = env::current_dir();
+    match current_path{
+        Ok(path) => println!("{}", path.display()),
+        Err(_) => println!(""),
     }
 }
 
