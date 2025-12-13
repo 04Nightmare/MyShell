@@ -1,10 +1,11 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::env;
+use std::path::Path;
 use std::process::Command;
 use pathsearch::find_executable_in_path;
 
-const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd"];
+const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 fn main() {
     loop{
         print!("$ ");
@@ -15,15 +16,19 @@ fn main() {
 
         let shell_command: Vec<&str> = input.trim().split_whitespace().collect();
         if shell_command.is_empty(){
-            println!("{}: command not found", input.trim());
+            //println!("{}: command not found", input.trim());
         }else{
-            let args = &shell_command[1..];
-    
+            let args = if shell_command.len() == 1{
+                &[""]
+            }else{
+                &shell_command[1..]
+            };
             match shell_command[0]{
                 "exit" => break,
                 "echo" => echo_command(args),
                 "type" => type_command(args),
                 "pwd" => pwd_command(),
+                "cd" => cd_command(&args[0]),
                 _ => check_command(&input),
             }
         }
@@ -38,7 +43,6 @@ fn pwd_command(){
         Err(_) => println!(""),
     }
 }
-
 
 fn echo_command(args: &[&str]){
     println!("{}", args.join(" "));
@@ -56,7 +60,6 @@ fn type_command(args: &[&str]){
     }
     println!("{}: not found", args[0]);
 }
-
 
 fn check_command(cmd: &str){
     let command_split: Vec<&str> = cmd.split_whitespace().collect();
@@ -76,4 +79,26 @@ fn check_command(cmd: &str){
     println!("{}: command not found", &command_split[0])
 }
 
-
+fn cd_command(ab_path: &str){
+    if ab_path == "~"{
+        let home_dir = env::home_dir();
+        match home_dir{
+            Some(home_dir_path) => {
+                let home_dir_path_string = home_dir_path.display().to_string();
+                let cd_path = Path::new(&home_dir_path_string);
+                match env::set_current_dir(&cd_path){
+                    Ok(_) => {},
+                    Err(_) => println!("cd: can't get to home directory"),
+                }
+            },
+            None => println!("cd: can't get to home directory"),
+        }
+    }else{
+        let cd_path = Path::new(ab_path);
+        let is_path = env::set_current_dir(&cd_path);
+        match is_path{
+            Ok(_) => {},
+            Err(_) => println!("cd: {}: no such file or directory", ab_path),
+        }
+    }
+}
