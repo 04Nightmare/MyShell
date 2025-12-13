@@ -98,7 +98,7 @@ fn cd_command(ab_path: &str){
         let is_path = env::set_current_dir(&cd_path);
         match is_path{
             Ok(_) => {},
-            Err(_) => println!("cd: {}: no such file or directory", ab_path),
+            Err(_) => println!("cd: {}: No such file or directory", ab_path),
         }
     }
 }
