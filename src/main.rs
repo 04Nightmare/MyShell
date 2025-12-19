@@ -25,35 +25,22 @@ fn main() {
             };
             match shell_command[0] {
                 "exit" => break,
-                "echo" => echo_command(args, input.trim()),
+                "echo" => echo_command(input.trim()),
                 "type" => type_command(args),
                 "pwd" => pwd_command(),
                 "cd" => cd_command(&args[0]),
-                _ => check_command(&input),
+                _ => not_shell_builtin_command(input.trim()),
             }
         }
     }
 }
 
-fn pwd_command() {
-    let current_path = env::current_dir();
-    match current_path {
-        Ok(path) => println!("{}", path.display()),
-        Err(_) => println!(""),
-    }
-}
-
-fn echo_command(args: &[&str], input: &str) {
-    let raw_arg = if input.starts_with("echo ") {
-        &input[5..]
-    } else {
-        input
-    };
-    let mut result_args: Vec<String> = Vec::new();
+fn input_line_parsing(input: &str) -> Vec<String> {
+    let mut result_args = Vec::new();
     let mut current_arg_buffer = String::new();
     let mut in_squote = false;
 
-    for char in raw_arg.chars() {
+    for char in input.chars() {
         if char == '\'' {
             in_squote = !in_squote;
         } else if char == ' ' && !in_squote {
@@ -68,7 +55,22 @@ fn echo_command(args: &[&str], input: &str) {
     if !current_arg_buffer.is_empty() {
         result_args.push(current_arg_buffer);
     }
-    println!("{}", result_args.join(" "));
+    return result_args;
+}
+
+fn pwd_command() {
+    let current_path = env::current_dir();
+    match current_path {
+        Ok(path) => println!("{}", path.display()),
+        Err(_) => println!(""),
+    }
+}
+
+fn echo_command(input: &str) {
+    let full_parsed_command = input_line_parsing(input);
+    let _command = &full_parsed_command[0];
+    let args = &full_parsed_command[1..];
+    println!("{}", args.join(" "));
 }
 
 fn type_command(args: &[&str]) {
@@ -84,22 +86,25 @@ fn type_command(args: &[&str]) {
     println!("{}: not found", args[0]);
 }
 
-fn check_command(cmd: &str) {
-    let command_split: Vec<&str> = cmd.split_whitespace().collect();
-    if command_split.len() > 1 {
-        let dynamic_args = &command_split[1..];
-        if command_split.is_empty() {
-            println!("{}: command not found", cmd);
+fn not_shell_builtin_command(input: &str) {
+    let full_parsed_command = input_line_parsing(input);
+    let command = &full_parsed_command[0];
+    if full_parsed_command.len() > 1 {
+        let args = &full_parsed_command[1..];
+        if full_parsed_command.is_empty() {
+            println!("{}: command not found", input);
         } else {
-            let mut output = Command::new(command_split[0])
-                .args(dynamic_args)
-                .spawn()
-                .unwrap();
-            output.wait().unwrap();
+            let output = Command::new(command).args(args).spawn();
+            match output {
+                Ok(mut child) => {
+                    child.wait().unwrap();
+                }
+                Err(_e) => eprintln!("{}: command not found", command),
+            }
             return;
         }
     }
-    println!("{}: command not found", &command_split[0])
+    println!("{}: command not found", command);
 }
 
 fn cd_command(ab_path: &str) {
