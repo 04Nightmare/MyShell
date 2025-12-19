@@ -54,6 +54,9 @@ fn input_line_parsing(input: &str) -> Vec<String> {
             }
         } else if char == '\'' {
             in_squote = !in_squote;
+            if in_dquote {
+                current_arg_buffer.push(char);
+            }
         } else if char == '"' && !in_squote {
             in_dquote = !in_dquote;
         } else if char == ' ' && !in_squote && !in_dquote {
