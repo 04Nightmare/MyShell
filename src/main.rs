@@ -39,11 +39,14 @@ fn input_line_parsing(input: &str) -> Vec<String> {
     let mut result_args = Vec::new();
     let mut current_arg_buffer = String::new();
     let mut in_squote = false;
+    let mut in_dquote = false;
 
     for char in input.chars() {
-        if char == '\'' {
+        if char == '\'' && !in_dquote {
             in_squote = !in_squote;
-        } else if char == ' ' && !in_squote {
+        } else if char == '"' && !in_squote {
+            in_dquote = !in_dquote;
+        } else if char == ' ' && !in_squote && !in_dquote {
             if !current_arg_buffer.is_empty() {
                 result_args.push(current_arg_buffer.clone());
                 current_arg_buffer.clear();
