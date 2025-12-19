@@ -46,8 +46,12 @@ fn input_line_parsing(input: &str) -> Vec<String> {
         if is_escaped {
             current_arg_buffer.push(char);
             is_escaped = false;
-        } else if char == '\\' && !in_squote {
-            is_escaped = true;
+        } else if char == '\\' {
+            if in_squote {
+                current_arg_buffer.push(char);
+            } else {
+                is_escaped = true;
+            }
         } else if char == '\'' && !in_dquote {
             in_squote = !in_squote;
         } else if char == '"' && !in_squote {
