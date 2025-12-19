@@ -40,9 +40,15 @@ fn input_line_parsing(input: &str) -> Vec<String> {
     let mut current_arg_buffer = String::new();
     let mut in_squote = false;
     let mut in_dquote = false;
+    let mut is_escaped = false;
 
     for char in input.chars() {
-        if char == '\'' && !in_dquote {
+        if is_escaped {
+            current_arg_buffer.push(char);
+            is_escaped = false;
+        } else if char == '\\' && !in_squote {
+            is_escaped = true;
+        } else if char == '\'' && !in_dquote {
             in_squote = !in_squote;
         } else if char == '"' && !in_squote {
             in_dquote = !in_dquote;
