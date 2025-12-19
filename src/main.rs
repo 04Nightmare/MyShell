@@ -52,7 +52,7 @@ fn input_line_parsing(input: &str) -> Vec<String> {
             } else {
                 is_escaped = true;
             }
-        } else if char == '\'' && !in_dquote {
+        } else if char == '\'' {
             in_squote = !in_squote;
         } else if char == '"' && !in_squote {
             in_dquote = !in_dquote;
