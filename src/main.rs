@@ -42,30 +42,36 @@ fn input_line_parsing(input: &str) -> Vec<String> {
     let mut in_dquote = false;
     let mut is_escaped = false;
 
-    for char in input.chars() {
+    let char_vec: Vec<char> = input.chars().collect();
+    for window in char_vec.windows(2) {
+        let current_char = window[0];
+        let next_char = window[1];
         if is_escaped {
-            current_arg_buffer.push(char);
+            current_arg_buffer.push(current_char);
             is_escaped = false;
-        } else if char == '\\' {
+        } else if current_char == '\\' {
             if in_squote {
-                current_arg_buffer.push(char);
+                current_arg_buffer.push(current_char);
+            } else if in_dquote {
+                if next_char == '"' || next_char == '\\' {
+                    is_escaped = true;
+                } else {
+                    current_arg_buffer.push(current_char);
+                }
             } else {
                 is_escaped = true;
             }
-        } else if char == '\'' {
+        } else if current_char == '\'' && !in_dquote {
             in_squote = !in_squote;
-            if in_dquote {
-                current_arg_buffer.push(char);
-            }
-        } else if char == '"' && !in_squote {
+        } else if current_char == '"' && !in_squote {
             in_dquote = !in_dquote;
-        } else if char == ' ' && !in_squote && !in_dquote {
+        } else if current_char == ' ' && !in_squote && !in_dquote {
             if !current_arg_buffer.is_empty() {
                 result_args.push(current_arg_buffer.clone());
                 current_arg_buffer.clear();
             }
         } else {
-            current_arg_buffer.push(char);
+            current_arg_buffer.push(current_char);
         }
     }
     if !current_arg_buffer.is_empty() {
