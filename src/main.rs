@@ -42,10 +42,8 @@ fn input_line_parsing(input: &str) -> Vec<String> {
     let mut in_dquote = false;
     let mut is_escaped = false;
 
-    let char_vec: Vec<char> = input.chars().collect();
-    for window in char_vec.windows(2) {
-        let current_char = window[0];
-        let next_char = window[1];
+    let mut char_peek_iterator = input.chars().peekable();
+    while let Some(current_char) = char_peek_iterator.next() {
         if is_escaped {
             current_arg_buffer.push(current_char);
             is_escaped = false;
@@ -53,8 +51,12 @@ fn input_line_parsing(input: &str) -> Vec<String> {
             if in_squote {
                 current_arg_buffer.push(current_char);
             } else if in_dquote {
-                if next_char == '"' || next_char == '\\' {
-                    is_escaped = true;
+                if let Some(&next_char) = char_peek_iterator.peek() {
+                    if next_char == '"' || next_char == '\\' {
+                        is_escaped = true;
+                    } else {
+                        current_arg_buffer.push(current_char);
+                    }
                 } else {
                     current_arg_buffer.push(current_char);
                 }
