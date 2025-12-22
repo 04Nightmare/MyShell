@@ -185,19 +185,22 @@ fn not_shell_builtin_command(input: &str) {
                             } else {
                                 println!("{}", stdout_str.trim());
                             }
-                            eprint!("{}", stderr_str);
+                            eprintln!("{}", stderr_str);
                         }
                         Some("2>") => {
                             if let Some(filepath) = filepath {
                                 handle_redirect(filepath, stderr_str.as_bytes());
                             } else {
-                                println!("{}", stderr_str.trim());
+                                eprintln!("{}", stderr_str.trim());
                             }
-                            println!("{}", stdout_str);
+                            println!("{}", stdout_str.trim());
                         }
                         _ => {
-                            print!("{}", stdout_str.trim());
-                            eprint!("{}", stderr_str.trim());
+                            if output.status.success() {
+                                println!("{}", stdout_str.trim());
+                                return;
+                            }
+                            eprintln!("{}", stderr_str.trim());
                         }
                     }
                 }
