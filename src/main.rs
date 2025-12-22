@@ -1,10 +1,10 @@
 use pathsearch::find_executable_in_path;
+use std::env;
 use std::fs::File;
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
-use std::{default, env};
 
 const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 fn main() {
@@ -182,16 +182,20 @@ fn not_shell_builtin_command(input: &str) {
                         Some(">") | Some("1>") => {
                             if let Some(filepath) = filepath {
                                 handle_redirect(filepath, stdout_str.as_bytes());
-                            } else {
+                                return;
+                            } else if !stdout_str.is_empty() {
                                 println!("{}", stdout_str.trim());
+                                return;
                             }
-                            eprintln!("{}", stderr_str);
+                            eprintln!("{}", stderr_str.trim());
                         }
                         Some("2>") => {
                             if let Some(filepath) = filepath {
                                 handle_redirect(filepath, stderr_str.as_bytes());
-                            } else {
+                                return;
+                            } else if !stderr_str.is_empty() {
                                 eprintln!("{}", stderr_str.trim());
+                                return;
                             }
                             println!("{}", stdout_str.trim());
                         }
