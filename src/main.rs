@@ -84,19 +84,25 @@ fn input_line_parsing(input: &str) -> Vec<String> {
 }
 
 fn handle_redirect(filepath: &String, filecontent: &[u8]) {
-    if filepath == &">".to_string() {
-        println!("no filename");
-        return;
-    }
     let file = File::create(filepath);
     match file {
         Ok(mut file) => {
-            file.write(filecontent).unwrap();
+            file.write_all(filecontent).unwrap();
         }
         Err(_) => {
             println!("cant create file");
         }
     }
+}
+
+fn get_filepath(args: &[String]) -> Option<&String> {
+    let position = args.iter().position(|s| s == ">" || s == "1>");
+    let filepath = if let Some(position) = position {
+        args.get(position + 1)
+    } else {
+        None
+    };
+    return filepath;
 }
 
 fn pwd_command() {
@@ -109,22 +115,26 @@ fn pwd_command() {
 
 fn echo_command(input: &str) {
     let full_parsed_command = input_line_parsing(input);
-    let _command = &full_parsed_command[0];
+    //let _command = &full_parsed_command[0];
     let args = &full_parsed_command[1..];
-    let filepath = &args[args.len() - 1];
+    let filepath = get_filepath(args);
     let print_upto_symbol = args
         .iter()
         .position(|symbol| symbol == ">" || symbol == "1>")
         .unwrap_or(args.len());
-    if full_parsed_command
-        .iter()
-        .any(|com| com == ">" || com == "1>")
-    {
-        let write_to_file = args[..print_upto_symbol].join(" ");
+    // if full_parsed_command
+    //     .iter()
+    //     .any(|com| com == ">" || com == "1>")
+    //{
+    let write_to_file = args[..print_upto_symbol].join(" ");
+    if let Some(filepath) = filepath {
         handle_redirect(filepath, write_to_file.as_bytes());
-        return;
+    } else {
+        println!("{}", args[..print_upto_symbol].join(" "));
     }
-    println!("{}", args[..print_upto_symbol].join(" "));
+    return;
+    //}
+    //println!("{}", args[..print_upto_symbol].join(" "));
 }
 
 fn type_command(args: &[&str]) {
@@ -145,7 +155,7 @@ fn not_shell_builtin_command(input: &str) {
     let command = &full_parsed_command[0];
     if full_parsed_command.len() > 1 {
         let args = &full_parsed_command[1..];
-        let filepath = &args[args.len() - 1];
+        let filepath = get_filepath(args);
         let args_upto_symbol = args
             .iter()
             .position(|symbol| symbol == ">" || symbol == "1>")
@@ -161,14 +171,12 @@ fn not_shell_builtin_command(input: &str) {
                 Ok(output) => {
                     let stdout_str = String::from_utf8_lossy(&output.stdout);
                     let stderr_str = String::from_utf8_lossy(&output.stderr);
-                    if !output.status.success() {
-                        eprint!("{}", stderr_str);
-                        return;
-                    } else if args.iter().any(|s| s == ">" || s == "1>") {
+                    if let Some(filepath) = filepath {
                         handle_redirect(filepath, stdout_str.as_bytes());
-                        return;
+                    } else {
+                        println!("{}", stdout_str.trim());
                     }
-                    println!("{}", stdout_str.trim());
+                    eprint!("{}", stderr_str);
                 }
                 Err(_e) => eprintln!("{}: command not found", command),
             }
