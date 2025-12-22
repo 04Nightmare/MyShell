@@ -1,5 +1,6 @@
 use pathsearch::find_executable_in_path;
 use std::env;
+use std::fs::File;
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::path::Path;
@@ -82,6 +83,22 @@ fn input_line_parsing(input: &str) -> Vec<String> {
     return result_args;
 }
 
+fn handle_redirect(filepath: &String, filecontent: &[u8]) {
+    if filepath == &">".to_string() {
+        println!("no filename");
+        return;
+    }
+    let file = File::create(filepath);
+    match file {
+        Ok(mut file) => {
+            file.write_all(filecontent).unwrap();
+        }
+        Err(_) => {
+            println!("cant create file");
+        }
+    }
+}
+
 fn pwd_command() {
     let current_path = env::current_dir();
     match current_path {
@@ -94,7 +111,17 @@ fn echo_command(input: &str) {
     let full_parsed_command = input_line_parsing(input);
     let _command = &full_parsed_command[0];
     let args = &full_parsed_command[1..];
-    println!("{}", args.join(" "));
+    let filepath = &args[args.len() - 1];
+    let print_upto_symbol = args
+        .iter()
+        .position(|symbol| symbol == ">")
+        .unwrap_or(args.len());
+    if full_parsed_command.iter().any(|com| com == ">") {
+        let write_to_file = args[..print_upto_symbol].join(" ");
+        handle_redirect(filepath, write_to_file.as_bytes());
+        return;
+    }
+    println!("{}", args[..print_upto_symbol].join(" "));
 }
 
 fn type_command(args: &[&str]) {
@@ -115,16 +142,33 @@ fn not_shell_builtin_command(input: &str) {
     let command = &full_parsed_command[0];
     if full_parsed_command.len() > 1 {
         let args = &full_parsed_command[1..];
+        let filepath = &args[args.len() - 1];
+        let args_upto_symbol = args
+            .iter()
+            .position(|symbol| symbol == ">")
+            .unwrap_or(args.len());
         if full_parsed_command.is_empty() {
             println!("{}: command not found", input);
         } else {
-            let output = Command::new(command).args(args).spawn();
+            let output = Command::new(command)
+                .args(args[..args_upto_symbol].to_vec())
+                .output();
             match output {
-                Ok(mut child) => {
-                    child.wait().unwrap();
+                Ok(output) => {
+                    let stdout_str = String::from_utf8_lossy(&output.stdout);
+                    let stderr_str = String::from_utf8_lossy(&output.stderr);
+                    if !output.status.success() {
+                        eprint!("{}", stderr_str);
+                        return;
+                    } else if args.iter().any(|s| s == ">") {
+                        handle_redirect(filepath, stdout_str.as_bytes());
+                        return;
+                    }
+                    io::stdout().write_all(stdout_str.as_bytes()).unwrap();
                 }
                 Err(_e) => eprintln!("{}: command not found", command),
             }
+
             return;
         }
     }
