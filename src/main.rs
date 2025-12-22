@@ -196,8 +196,8 @@ fn not_shell_builtin_command(input: &str) {
                             println!("{}", stdout_str);
                         }
                         _ => {
-                            print!("{}", stdout_str);
-                            eprint!("{}", stderr_str);
+                            print!("{}", stdout_str.trim());
+                            eprint!("{}", stderr_str.trim());
                         }
                     }
                 }
