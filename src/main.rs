@@ -167,7 +167,7 @@ fn not_shell_builtin_command(input: &str) {
                         handle_redirect(filepath, stdout_str.as_bytes());
                         return;
                     }
-                    io::stdout().write_all(stdout_str.as_bytes()).unwrap();
+                    println!("{}", stdout_str);
                 }
                 Err(_e) => eprintln!("{}: command not found", command),
             }
