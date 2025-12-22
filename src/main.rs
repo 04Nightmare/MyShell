@@ -114,9 +114,12 @@ fn echo_command(input: &str) {
     let filepath = &args[args.len() - 1];
     let print_upto_symbol = args
         .iter()
-        .position(|symbol| symbol == ">")
+        .position(|symbol| symbol == ">" || symbol == "1>")
         .unwrap_or(args.len());
-    if full_parsed_command.iter().any(|com| com == ">") {
+    if full_parsed_command
+        .iter()
+        .any(|com| com == ">" || com == "1>")
+    {
         let write_to_file = args[..print_upto_symbol].join(" ");
         handle_redirect(filepath, write_to_file.as_bytes());
         return;
@@ -145,7 +148,7 @@ fn not_shell_builtin_command(input: &str) {
         let filepath = &args[args.len() - 1];
         let args_upto_symbol = args
             .iter()
-            .position(|symbol| symbol == ">")
+            .position(|symbol| symbol == ">" || symbol == "1>")
             .unwrap_or(args.len());
         if full_parsed_command.is_empty() {
             println!("{}: command not found", input);
@@ -160,7 +163,7 @@ fn not_shell_builtin_command(input: &str) {
                     if !output.status.success() {
                         eprint!("{}", stderr_str);
                         return;
-                    } else if args.iter().any(|s| s == ">") {
+                    } else if args.iter().any(|s| s == ">" || s == "1>") {
                         handle_redirect(filepath, stdout_str.as_bytes());
                         return;
                     }
