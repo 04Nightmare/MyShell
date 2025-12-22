@@ -1,10 +1,10 @@
 use pathsearch::find_executable_in_path;
-use std::env;
 use std::fs::File;
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
+use std::{default, env};
 
 const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 fn main() {
@@ -96,7 +96,7 @@ fn handle_redirect(filepath: &String, filecontent: &[u8]) {
 }
 
 fn get_filepath(args: &[String]) -> Option<&String> {
-    let position = args.iter().position(|s| s == ">" || s == "1>");
+    let position = args.iter().position(|s| s == ">" || s == "1>" || s == "2>");
     let filepath = if let Some(position) = position {
         args.get(position + 1)
     } else {
@@ -118,19 +118,26 @@ fn echo_command(input: &str) {
     //let _command = &full_parsed_command[0];
     let args = &full_parsed_command[1..];
     let filepath = get_filepath(args);
-    let print_upto_symbol = args
+    let symbol_position = args
         .iter()
-        .position(|symbol| symbol == ">" || symbol == "1>")
+        .position(|sym| sym == ">" || sym == "1>" || sym == "2>")
         .unwrap_or(args.len());
     // if full_parsed_command
     //     .iter()
     //     .any(|com| com == ">" || com == "1>")
     //{
-    let write_to_file = args[..print_upto_symbol].join(" ");
+    let write_to_file = args[..symbol_position].join(" ");
+    if args.get(symbol_position).map(|s| s == "2>") == Some(true) {
+        if let Some(filepath) = filepath {
+            File::create(filepath).unwrap();
+        }
+        println!("{}", write_to_file);
+        return;
+    }
     if let Some(filepath) = filepath {
         handle_redirect(filepath, write_to_file.as_bytes());
     } else {
-        println!("{}", args[..print_upto_symbol].join(" "));
+        println!("{}", write_to_file);
     }
     return;
     //}
@@ -156,27 +163,43 @@ fn not_shell_builtin_command(input: &str) {
     if full_parsed_command.len() > 1 {
         let args = &full_parsed_command[1..];
         let filepath = get_filepath(args);
-        let args_upto_symbol = args
+        let symbol_position = args
             .iter()
-            .position(|symbol| symbol == ">" || symbol == "1>")
+            .position(|sym| sym == ">" || sym == "1>" || sym == "2>")
             .unwrap_or(args.len());
 
         if full_parsed_command.is_empty() {
             println!("{}: command not found", input);
         } else {
             let output = Command::new(command)
-                .args(args[..args_upto_symbol].to_vec())
+                .args(args[..symbol_position].to_vec())
                 .output();
             match output {
                 Ok(output) => {
                     let stdout_str = String::from_utf8_lossy(&output.stdout);
                     let stderr_str = String::from_utf8_lossy(&output.stderr);
-                    if let Some(filepath) = filepath {
-                        handle_redirect(filepath, stdout_str.as_bytes());
-                    } else {
-                        println!("{}", stdout_str.trim());
+                    match args.get(symbol_position).map(|s| s.as_str()) {
+                        Some(">") | Some("1>") => {
+                            if let Some(filepath) = filepath {
+                                handle_redirect(filepath, stdout_str.as_bytes());
+                            } else {
+                                println!("{}", stdout_str.trim());
+                            }
+                            eprint!("{}", stderr_str);
+                        }
+                        Some("2>") => {
+                            if let Some(filepath) = filepath {
+                                handle_redirect(filepath, stderr_str.as_bytes());
+                            } else {
+                                println!("{}", stderr_str.trim());
+                            }
+                            println!("{}", stdout_str);
+                        }
+                        _ => {
+                            print!("{}", stdout_str);
+                            eprint!("{}", stderr_str);
+                        }
                     }
-                    eprint!("{}", stderr_str);
                 }
                 Err(_e) => eprintln!("{}: command not found", command),
             }
