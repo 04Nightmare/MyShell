@@ -91,7 +91,7 @@ fn handle_redirect(filepath: &String, filecontent: &[u8]) {
     let file = File::create(filepath);
     match file {
         Ok(mut file) => {
-            file.write_all(filecontent).unwrap();
+            file.write(filecontent).unwrap();
         }
         Err(_) => {
             println!("cant create file");
@@ -150,6 +150,7 @@ fn not_shell_builtin_command(input: &str) {
             .iter()
             .position(|symbol| symbol == ">" || symbol == "1>")
             .unwrap_or(args.len());
+
         if full_parsed_command.is_empty() {
             println!("{}: command not found", input);
         } else {
@@ -167,7 +168,7 @@ fn not_shell_builtin_command(input: &str) {
                         handle_redirect(filepath, stdout_str.as_bytes());
                         return;
                     }
-                    println!("{}", stdout_str);
+                    println!("{}", stdout_str.trim());
                 }
                 Err(_e) => eprintln!("{}: command not found", command),
             }
