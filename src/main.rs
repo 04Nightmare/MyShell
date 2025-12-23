@@ -166,8 +166,7 @@ fn echo_command(input: &str) {
         .unwrap_or(args.len());
 
     let write_to_file = args[..symbol_position].join(" ");
-    //if args.get(symbol_position).map(|s| s == "2>" || s == "2>>") == Some(true) {
-    if args[symbol_position] == "2>" || args[symbol_position] == "2>>" {
+    if args.get(symbol_position).map(|s| s == "2>" || s == "2>>") == Some(true) {
         if let Some(filepath) = filepath {
             File::create(filepath).unwrap();
         }
