@@ -1,6 +1,6 @@
 use pathsearch::find_executable_in_path;
 use std::env;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::path::Path;
@@ -87,7 +87,21 @@ fn handle_redirect(filepath: &String, filecontent: &[u8]) {
     let file = File::create(filepath);
     match file {
         Ok(mut file) => {
-            file.write_all(filecontent).unwrap();
+            file.write_all(filecontent.trim_ascii()).unwrap();
+            file.write_all(b"\n").unwrap();
+        }
+        Err(_) => {
+            println!("cant create file");
+        }
+    }
+}
+
+fn handle_redirect_append(filepath: &String, filecontent: &[u8]) {
+    let file = OpenOptions::new().create(true).append(true).open(filepath);
+    match file {
+        Ok(mut file) => {
+            file.write_all(filecontent.trim_ascii()).unwrap();
+            file.write_all(b"\n").unwrap();
         }
         Err(_) => {
             println!("cant create file");
@@ -96,7 +110,9 @@ fn handle_redirect(filepath: &String, filecontent: &[u8]) {
 }
 
 fn get_filepath(args: &[String]) -> Option<&String> {
-    let position = args.iter().position(|s| s == ">" || s == "1>" || s == "2>");
+    let position = args
+        .iter()
+        .position(|s| s == ">" || s == "1>" || s == "2>" || s == ">>" || s == "1>>");
     let filepath = if let Some(position) = position {
         args.get(position + 1)
     } else {
@@ -120,7 +136,7 @@ fn echo_command(input: &str) {
     let filepath = get_filepath(args);
     let symbol_position = args
         .iter()
-        .position(|sym| sym == ">" || sym == "1>" || sym == "2>")
+        .position(|sym| sym == ">" || sym == "1>" || sym == "2>" || sym == ">>" || sym == "1>>")
         .unwrap_or(args.len());
     // if full_parsed_command
     //     .iter()
@@ -135,7 +151,11 @@ fn echo_command(input: &str) {
         return;
     }
     if let Some(filepath) = filepath {
-        handle_redirect(filepath, write_to_file.as_bytes());
+        if args[symbol_position] == ">" || args[symbol_position] == "1>" {
+            handle_redirect(filepath, write_to_file.as_bytes());
+            return;
+        }
+        handle_redirect_append(filepath, write_to_file.as_bytes());
     } else {
         println!("{}", write_to_file);
     }
@@ -157,6 +177,9 @@ fn type_command(args: &[&str]) {
     println!("{}: not found", args[0]);
 }
 
+//This is some of the worse code ever written. :)
+//Dont let this judge my big personality. <3
+
 fn not_shell_builtin_command(input: &str) {
     let full_parsed_command = input_line_parsing(input);
     let command = &full_parsed_command[0];
@@ -165,50 +188,63 @@ fn not_shell_builtin_command(input: &str) {
         let filepath = get_filepath(args);
         let symbol_position = args
             .iter()
-            .position(|sym| sym == ">" || sym == "1>" || sym == "2>")
+            .position(|sym| sym == ">" || sym == "1>" || sym == "2>" || sym == ">>" || sym == "1>>")
             .unwrap_or(args.len());
 
         if full_parsed_command.is_empty() {
             println!("{}: command not found", input);
         } else {
             let output = Command::new(command)
-                .args(args[..symbol_position].to_vec())
+                .args(&args[..symbol_position])
                 .output();
             match output {
                 Ok(output) => {
-                    let stdout_str = String::from_utf8_lossy(&output.stdout);
-                    let stderr_str = String::from_utf8_lossy(&output.stderr);
-                    match args.get(symbol_position).map(|s| s.as_str()) {
+                    let stdout_str = &output.stdout;
+                    let stderr_str = &output.stderr;
+                    let redirect_symbol = args.get(symbol_position).map(String::as_str);
+                    match redirect_symbol {
                         Some(">") | Some("1>") => {
                             if let Some(filepath) = filepath {
-                                handle_redirect(filepath, stdout_str.as_bytes());
-                                //return;
-                            } else if !stdout_str.is_empty() {
-                                println!("{}", stdout_str.trim());
+                                handle_redirect(filepath, stdout_str);
+                            } else {
+                                //or else if !stdout_str.is_empty()
+                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
                                 return;
                             }
                             if !stderr_str.is_empty() {
-                                eprintln!("{}", stderr_str.trim());
+                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
                             }
                         }
                         Some("2>") => {
                             if let Some(filepath) = filepath {
-                                handle_redirect(filepath, stderr_str.as_bytes());
-                                //return;
-                            } else if !stderr_str.is_empty() {
-                                eprintln!("{}", stderr_str.trim());
+                                handle_redirect(filepath, stderr_str);
+                            } else {
+                                //or else if !stderr_str.is_empty()
+                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
                                 return;
                             }
                             if !stdout_str.is_empty() {
-                                println!("{}", stdout_str.trim());
+                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                            }
+                        }
+                        Some(">>") | Some("1>>") => {
+                            if let Some(filepath) = filepath {
+                                handle_redirect_append(filepath, stdout_str);
+                            } else {
+                                println!("{:?}", filepath);
+                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                                return;
+                            }
+                            if !stderr_str.is_empty() {
+                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
                             }
                         }
                         _ => {
                             if !stdout_str.is_empty() {
-                                println!("{}", stdout_str.trim());
+                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
                             }
                             if !stderr_str.is_empty() {
-                                eprintln!("{}", stderr_str.trim());
+                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
                             }
                         }
                     }
