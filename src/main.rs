@@ -182,29 +182,34 @@ fn not_shell_builtin_command(input: &str) {
                         Some(">") | Some("1>") => {
                             if let Some(filepath) = filepath {
                                 handle_redirect(filepath, stdout_str.as_bytes());
-                                return;
+                                //return;
                             } else if !stdout_str.is_empty() {
                                 println!("{}", stdout_str.trim());
                                 return;
                             }
-                            eprintln!("{}", stderr_str.trim());
+                            if !stderr_str.is_empty() {
+                                eprintln!("{}", stderr_str.trim());
+                            }
                         }
                         Some("2>") => {
                             if let Some(filepath) = filepath {
                                 handle_redirect(filepath, stderr_str.as_bytes());
-                                return;
+                                //return;
                             } else if !stderr_str.is_empty() {
                                 eprintln!("{}", stderr_str.trim());
                                 return;
                             }
-                            println!("{}", stdout_str.trim());
+                            if !stdout_str.is_empty() {
+                                println!("{}", stdout_str.trim());
+                            }
                         }
                         _ => {
-                            if output.status.success() {
+                            if !stdout_str.is_empty() {
                                 println!("{}", stdout_str.trim());
-                                return;
                             }
-                            eprintln!("{}", stderr_str.trim());
+                            if !stderr_str.is_empty() {
+                                eprintln!("{}", stderr_str.trim());
+                            }
                         }
                     }
                 }
