@@ -113,7 +113,7 @@ fn handle_redirect(filepath: &String, filecontent: &[u8]) {
     match file {
         Ok(mut file) => {
             file.write_all(filecontent.trim_ascii()).unwrap();
-            //file.write_all(b"\n").unwrap();
+            file.write_all(b"\n").unwrap();
         }
         Err(_) => {
             println!("cant create file");
