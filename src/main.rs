@@ -157,22 +157,30 @@ fn find_executable(char_slice: &str) -> Vec<String> {
     return results;
 }
 
-fn auto_complete(buffer: &str) -> Option<String> {
-    let command_matched: Vec<&str> = BUILTIN_COMMANDS
+fn auto_complete(buffer: &str) -> (Option<String>, Vec<String>) {
+    let command_matched: Vec<String> = BUILTIN_COMMANDS
         .iter()
         .copied()
         .filter(|cmd| cmd.starts_with(buffer))
+        .map(|s| s.to_string())
         .collect();
     if command_matched.len() == 1 {
-        return Some(command_matched[0].to_string());
+        return (Some(command_matched[0].clone()), command_matched);
     } else {
         let matches = find_executable(&buffer);
         if !matches.is_empty() {
-            return Some(matches[0].clone());
+            return (Some(matches[0].clone()), matches);
         } else {
-            return None;
+            (None, Vec::new())
         }
     }
+}
+
+fn print_all_exec(executables: Vec<String>) {
+    for exe in &executables {
+        print!("{}  ", exe);
+    }
+    print!("\r\n");
 }
 
 fn main() {
@@ -208,6 +216,7 @@ fn main() {
 fn read_inputs_keypress() -> String {
     enable_raw_mode().unwrap();
     let mut buffer = String::new();
+    let mut tab_count = false;
     loop {
         if let Event::Key(key) = event::read().unwrap() {
             match key {
@@ -244,13 +253,40 @@ fn read_inputs_keypress() -> String {
                 KeyEvent {
                     code: KeyCode::Tab, ..
                 } => {
-                    if let Some(complete_command) = auto_complete(&buffer) {
-                        buffer = complete_command;
-                        buffer.push(' ');
-                        redraw_entire_line("$ ", &buffer);
-                    } else {
+                    if buffer.is_empty() {
                         println!("\x07");
                         redraw_entire_line("$ ", &buffer);
+                        tab_count = false;
+                        continue;
+                    }
+                    let (string_option, string_vector) = auto_complete(&buffer);
+                    match string_vector.len() {
+                        0 => {
+                            println!("\x07");
+                            redraw_entire_line("$ ", &buffer);
+                            tab_count = false;
+                        }
+                        1 => {
+                            if let Some(complete_command) = string_option {
+                                buffer = complete_command;
+                                buffer.push(' ');
+                                redraw_entire_line("$ ", &buffer);
+                                tab_count = false;
+                            }
+                        }
+                        _ => {
+                            if tab_count == false {
+                                print!("\x07");
+                                redraw_entire_line("$ ", &buffer);
+                                tab_count = true;
+                                continue;
+                            }
+                            print!("\r\n");
+                            print_all_exec(string_vector);
+                            redraw_entire_line("$ ", &buffer);
+                            tab_count = false;
+                            continue;
+                        }
                     }
                 }
 
