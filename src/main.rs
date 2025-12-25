@@ -1,3 +1,5 @@
+use crossterm::event::{self, Event, KeyCode};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::env;
@@ -32,35 +34,7 @@ impl FromStr for Redirect {
     }
 }
 
-fn main() {
-    loop {
-        print!("$ ");
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-
-        let shell_command: Vec<&str> = input.trim().split_whitespace().collect();
-        if shell_command.is_empty() {
-            //println!("{}: command not found", input.trim());
-        } else {
-            let args = if shell_command.len() == 1 {
-                &[""]
-            } else {
-                &shell_command[1..]
-            };
-            match shell_command[0] {
-                "exit" => break,
-                "echo" => echo_command(input.trim()),
-                "type" => type_command(args),
-                "pwd" => pwd_command(),
-                "cd" => cd_command(&args[0]),
-                _ => not_shell_builtin_command(input.trim()),
-            }
-        }
-    }
-}
-
+//Utility Functions
 fn input_line_parsing(input: &str) -> Vec<String> {
     let mut result_args = Vec::new();
     let mut current_arg_buffer = String::new();
@@ -146,12 +120,108 @@ fn get_filepath(args: &[String]) -> Option<&String> {
     return filepath;
 }
 
-//Shell Commands
+fn auto_complete(buffer: &str) -> Option<String> {
+    let command_matched: Vec<&str> = BUILTIN_COMMANDS
+        .iter()
+        .copied()
+        .filter(|cmd| cmd.starts_with(buffer))
+        .collect();
+    if command_matched.len() == 1 {
+        return Some(command_matched[0].to_string());
+    } else {
+        return None;
+    }
+}
+
+fn main() {
+    loop {
+        print!("\r$ ");
+        io::stdout().flush().unwrap();
+
+        let input = read_inputs_keypress();
+
+        let shell_command: Vec<&str> = input.trim().split_whitespace().collect();
+        if shell_command.is_empty() {
+            //println!("{}: command not found", input.trim());
+            continue;
+        } else {
+            let args = if shell_command.len() == 1 {
+                &[""]
+            } else {
+                &shell_command[1..]
+            };
+            match shell_command[0] {
+                "exit" => break,
+                "echo" => echo_command(input.trim()),
+                "type" => type_command(args),
+                "pwd" => pwd_command(),
+                "cd" => cd_command(&args[0]),
+                _ => not_shell_builtin_command(input.trim()),
+            }
+        }
+    }
+}
+
+//Terminal Functions
+fn read_inputs_keypress() -> String {
+    enable_raw_mode().unwrap();
+    let mut buffer = String::new();
+    // print!("$ ");
+    // io::stdout().flush().unwrap();
+    loop {
+        if let Event::Key(key) = event::read().unwrap() {
+            match key.code {
+                KeyCode::Char(c) => {
+                    buffer.push(c);
+                    print!("{}", c);
+                    io::stdout().flush().unwrap();
+                }
+                KeyCode::Backspace => {
+                    if !buffer.is_empty() {
+                        buffer.pop();
+                        print!("\x1b[D\x1b[K");
+                        io::stdout().flush().unwrap();
+                    }
+                }
+                KeyCode::Tab => {
+                    if let Some(complete_command) = auto_complete(&buffer) {
+                        buffer = complete_command;
+                        buffer.push(' ');
+                        redraw_entire_line("$ ", &buffer);
+                    } else {
+                        println!("\x07");
+                        redraw_entire_line("$ ", &buffer);
+                    }
+                }
+                // KeyCode::Left => {
+                //     if !buffer.is_empty() {
+                //         print!("\x08");
+                //     }
+                // }
+                KeyCode::Enter => {
+                    print!("\r\n");
+                    io::stdout().flush().unwrap();
+                    break;
+                }
+                _ => {}
+            }
+        }
+    }
+    disable_raw_mode().unwrap();
+    return buffer;
+}
+
+fn redraw_entire_line(prompt: &str, buffer: &str) {
+    print!("\r\x1b[K{}{}", prompt, buffer);
+    io::stdout().flush().unwrap();
+}
+
+//Shell Command Functions
 fn pwd_command() {
     let current_path = env::current_dir();
     match current_path {
-        Ok(path) => println!("{}", path.display()),
-        Err(_) => println!(""),
+        Ok(path) => print!("{}\n", path.display()),
+        Err(_) => print!("\n"),
     }
 }
 
@@ -170,7 +240,7 @@ fn echo_command(input: &str) {
         if let Some(filepath) = filepath {
             File::create(filepath).unwrap();
         }
-        println!("{}", write_to_file);
+        print!("{}\n", write_to_file);
         return;
     }
     if let Some(filepath) = filepath {
@@ -180,22 +250,22 @@ fn echo_command(input: &str) {
         }
         handle_redirect_append(filepath, write_to_file.as_bytes());
     } else {
-        println!("{}", write_to_file);
+        print!("{}\n", write_to_file);
     }
     return;
 }
 
 fn type_command(args: &[&str]) {
     if !args.is_empty() && BUILTIN_COMMANDS.contains(&args[0]) {
-        println!("{} is a shell builtin", args[0]);
+        print!("{} is a shell builtin\n", args[0]);
         return;
     } else if !args.is_empty() {
         if let Some(path) = find_executable_in_path(&args[0]) {
-            println!("{} is {}", args[0], path.display());
+            print!("{} is {}\n", args[0], path.display());
             return;
         }
     }
-    println!("{}: not found", args[0]);
+    print!("{}: not found\n", args[0]);
 }
 
 //This is some of the worse code ever written. :)
@@ -213,7 +283,7 @@ fn not_shell_builtin_command(input: &str) {
             .unwrap_or(args.len());
 
         if full_parsed_command.is_empty() {
-            println!("{}: command not found", input);
+            print!("{}: command not found\n", input);
         } else {
             let output = Command::new(command)
                 .args(&args[..symbol_position])
@@ -230,11 +300,11 @@ fn not_shell_builtin_command(input: &str) {
                                 handle_redirect(filepath, stdout_str);
                             } else {
                                 //or else if !stdout_str.is_empty()
-                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                                print!("{}\n", String::from_utf8_lossy(stdout_str).trim());
                                 return;
                             }
                             if !stderr_str.is_empty() {
-                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
+                                eprint!("{}\n", String::from_utf8_lossy(stderr_str).trim());
                             }
                         }
                         Some("2>") => {
@@ -242,22 +312,22 @@ fn not_shell_builtin_command(input: &str) {
                                 handle_redirect(filepath, stderr_str);
                             } else {
                                 //or else if !stderr_str.is_empty()
-                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
+                                eprint!("{}\n", String::from_utf8_lossy(stderr_str).trim());
                                 return;
                             }
                             if !stdout_str.is_empty() {
-                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                                print!("{}\n", String::from_utf8_lossy(stdout_str).trim());
                             }
                         }
                         Some(">>") | Some("1>>") => {
                             if let Some(filepath) = filepath {
                                 handle_redirect_append(filepath, stdout_str);
                             } else {
-                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                                print!("{}\n", String::from_utf8_lossy(stdout_str).trim());
                                 return;
                             }
                             if !stderr_str.is_empty() {
-                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
+                                eprint!("{}\n", String::from_utf8_lossy(stderr_str).trim());
                             }
                         }
                         Some("2>>") => {
@@ -265,24 +335,24 @@ fn not_shell_builtin_command(input: &str) {
                                 handle_redirect_append(filepath, stderr_str);
                             } else {
                                 //or else if !stderr_str.is_empty()
-                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
+                                eprint!("{}\n", String::from_utf8_lossy(stderr_str).trim());
                                 return;
                             }
                             if !stdout_str.is_empty() {
-                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                                print!("{}\n", String::from_utf8_lossy(stdout_str).trim());
                             }
                         }
                         _ => {
                             if !stdout_str.is_empty() {
-                                println!("{}", String::from_utf8_lossy(stdout_str).trim());
+                                print!("{}\n", String::from_utf8_lossy(stdout_str).trim());
                             }
                             if !stderr_str.is_empty() {
-                                eprintln!("{}", String::from_utf8_lossy(stderr_str).trim());
+                                eprint!("{}\n", String::from_utf8_lossy(stderr_str).trim());
                             }
                         }
                     }
                 }
-                Err(_e) => eprintln!("{}: command not found", command),
+                Err(_e) => eprint!("{}: command not found\n", command),
             }
 
             return;
@@ -300,17 +370,17 @@ fn cd_command(ab_path: &str) {
                 let cd_path = Path::new(&home_dir_path_string);
                 match env::set_current_dir(&cd_path) {
                     Ok(_) => {}
-                    Err(_) => println!("cd: can't get to home directory"),
+                    Err(_) => print!("cd: can't get to home directory\n"),
                 }
             }
-            None => println!("cd: can't get to home directory"),
+            None => print!("cd: can't get to home directory\n"),
         }
     } else {
         let cd_path = Path::new(ab_path);
         let is_path = env::set_current_dir(&cd_path);
         match is_path {
             Ok(_) => {}
-            Err(_) => println!("cd: {}: No such file or directory", ab_path),
+            Err(_) => print!("cd: {}: No such file or directory\n", ab_path),
         }
     }
 }
