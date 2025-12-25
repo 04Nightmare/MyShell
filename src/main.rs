@@ -2,13 +2,14 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
-use std::env;
 use std::fs::{File, OpenOptions};
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
+use std::{env, fs};
 
 const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
@@ -120,6 +121,42 @@ fn get_filepath(args: &[String]) -> Option<&String> {
     return filepath;
 }
 
+fn get_path_directories() -> Vec<std::path::PathBuf> {
+    return env::var_os("PATH")
+        .unwrap_or_default()
+        .to_string_lossy()
+        .split(':')
+        .map(std::path::PathBuf::from)
+        .collect();
+}
+
+fn is_executable(path: &std::path::Path) -> bool {
+    match fs::metadata(path) {
+        Ok(metadata) => metadata.is_file() && (metadata.permissions().mode() & 0o111 != 0),
+        Err(_) => false,
+    }
+}
+
+fn find_executable(char_slice: &str) -> Vec<String> {
+    let mut results = Vec::new();
+
+    for dir in get_path_directories() {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(execname) = path.file_name().and_then(|n| n.to_str()) {
+                    if execname.starts_with(char_slice) && is_executable(&path) {
+                        results.push(execname.to_string());
+                    }
+                }
+            }
+        }
+    }
+    results.sort();
+    results.dedup();
+    return results;
+}
+
 fn auto_complete(buffer: &str) -> Option<String> {
     let command_matched: Vec<&str> = BUILTIN_COMMANDS
         .iter()
@@ -129,7 +166,12 @@ fn auto_complete(buffer: &str) -> Option<String> {
     if command_matched.len() == 1 {
         return Some(command_matched[0].to_string());
     } else {
-        return None;
+        let matches = find_executable(&buffer);
+        if !matches.is_empty() {
+            return Some(matches[0].clone());
+        } else {
+            return None;
+        }
     }
 }
 
