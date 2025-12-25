@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
@@ -166,24 +166,42 @@ fn main() {
 fn read_inputs_keypress() -> String {
     enable_raw_mode().unwrap();
     let mut buffer = String::new();
-    // print!("$ ");
-    // io::stdout().flush().unwrap();
     loop {
         if let Event::Key(key) = event::read().unwrap() {
-            match key.code {
-                KeyCode::Char(c) => {
-                    buffer.push(c);
-                    print!("{}", c);
-                    io::stdout().flush().unwrap();
+            match key {
+                KeyEvent {
+                    code: KeyCode::Enter,
+                    ..
                 }
-                KeyCode::Backspace => {
+                | KeyEvent {
+                    code: KeyCode::Char('j'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                }
+                | KeyEvent {
+                    code: KeyCode::Char('m'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                } => {
+                    print!("\r\n");
+                    io::stdout().flush().unwrap();
+                    break;
+                }
+
+                KeyEvent {
+                    code: KeyCode::Backspace,
+                    ..
+                } => {
                     if !buffer.is_empty() {
                         buffer.pop();
                         print!("\x1b[D\x1b[K");
                         io::stdout().flush().unwrap();
                     }
                 }
-                KeyCode::Tab => {
+
+                KeyEvent {
+                    code: KeyCode::Tab, ..
+                } => {
                     if let Some(complete_command) = auto_complete(&buffer) {
                         buffer = complete_command;
                         buffer.push(' ');
@@ -193,16 +211,27 @@ fn read_inputs_keypress() -> String {
                         redraw_entire_line("$ ", &buffer);
                     }
                 }
-                // KeyCode::Left => {
-                //     if !buffer.is_empty() {
-                //         print!("\x08");
-                //     }
-                // }
-                KeyCode::Enter => {
-                    print!("\r\n");
+
+                KeyEvent {
+                    code: KeyCode::Char(c),
+                    modifiers: m,
+                    ..
+                } if m.is_empty() || m == KeyModifiers::SHIFT => {
+                    buffer.push(c);
+                    print!("{}", c);
                     io::stdout().flush().unwrap();
-                    break;
                 }
+
+                KeyEvent {
+                    code: KeyCode::Char('c'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                } => {
+                    print!("^c\r\n");
+                    disable_raw_mode().unwrap();
+                    std::process::exit(0);
+                }
+
                 _ => {}
             }
         }
