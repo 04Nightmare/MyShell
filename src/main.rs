@@ -183,6 +183,25 @@ fn print_all_exec(executables: Vec<String>) {
     print!("\r\n");
 }
 
+fn longest_common_prefix(strings: &[String]) -> String {
+    if strings.is_empty() {
+        return String::new();
+    }
+    let mut prefix = strings[0].clone();
+    for s in strings.iter().skip(1) {
+        let mut i = 0;
+        let max = prefix.len().min(s.len());
+        while i < max && prefix.as_bytes()[i] == s.as_bytes()[i] {
+            i += 1;
+        }
+        prefix.truncate(i);
+        if prefix.is_empty() {
+            break;
+        }
+    }
+    return prefix;
+}
+
 fn main() {
     loop {
         print!("\r$ ");
@@ -216,7 +235,7 @@ fn main() {
 fn read_inputs_keypress() -> String {
     enable_raw_mode().unwrap();
     let mut buffer = String::new();
-    let mut tab_count = false;
+    let mut tab_flip = false;
     loop {
         if let Event::Key(key) = event::read().unwrap() {
             match key {
@@ -256,7 +275,7 @@ fn read_inputs_keypress() -> String {
                     if buffer.is_empty() {
                         println!("\x07");
                         redraw_entire_line("$ ", &buffer);
-                        tab_count = false;
+                        tab_flip = false;
                         continue;
                     }
                     let (string_option, string_vector) = auto_complete(&buffer);
@@ -264,28 +283,45 @@ fn read_inputs_keypress() -> String {
                         0 => {
                             println!("\x07");
                             redraw_entire_line("$ ", &buffer);
-                            tab_count = false;
+                            tab_flip = false;
                         }
                         1 => {
                             if let Some(complete_command) = string_option {
                                 buffer = complete_command;
                                 buffer.push(' ');
                                 redraw_entire_line("$ ", &buffer);
-                                tab_count = false;
+                                tab_flip = false;
                             }
                         }
                         _ => {
-                            if tab_count == false {
-                                print!("\x07");
+                            let common = longest_common_prefix(&string_vector);
+                            if common.len() > buffer.len() {
+                                buffer = common;
                                 redraw_entire_line("$ ", &buffer);
-                                tab_count = true;
-                                continue;
+                                tab_flip = false;
+                            } else {
+                                if tab_flip == false {
+                                    print!("\x07");
+                                    redraw_entire_line("$ ", &buffer);
+                                    tab_flip = true;
+                                } else {
+                                    print!("\r\n");
+                                    print_all_exec(string_vector);
+                                    redraw_entire_line("$ ", &buffer);
+                                    tab_flip = false;
+                                }
                             }
-                            print!("\r\n");
-                            print_all_exec(string_vector);
-                            redraw_entire_line("$ ", &buffer);
-                            tab_count = false;
-                            continue;
+                            // if tab_flip == false {
+                            //     print!("\x07");
+                            //     redraw_entire_line("$ ", &buffer);
+                            //     tab_flip = true;
+                            //     continue;
+                            // }
+                            // print!("\r\n");
+                            // print_all_exec(string_vector);
+                            // redraw_entire_line("$ ", &buffer);
+                            // tab_flip = false;
+                            // continue;
                         }
                     }
                 }
