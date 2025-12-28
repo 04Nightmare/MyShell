@@ -4,7 +4,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::{ChildStdout, Command, Stdio};
@@ -234,7 +234,7 @@ fn main() -> std::io::Result<()> {
             };
             match shell_command[0] {
                 "exit" => {
-                    fs::remove_file("/home/samannyo/history.txt")?;
+                    fs::remove_file("history.txt")?;
                     std::process::exit(0)
                 }
                 "echo" => echo_command(input.trim()),
@@ -273,7 +273,7 @@ fn read_inputs_keypress(history_count: i32) -> String {
                     print!("\r\n");
                     let formatted_buffer = format!("{} {}", history_count, buffer);
                     handle_redirect_append(
-                        &String::from("/home/samannyo/history.txt"),
+                        &String::from("history.txt"),
                         formatted_buffer.as_bytes(),
                     );
                     io::stdout().flush().unwrap();
@@ -442,7 +442,7 @@ fn type_command(input: &str) {
 }
 
 fn history_command(args: &str) {
-    let file = File::open("/home/samannyo/history.txt");
+    let file = File::open("history.txt");
     match file {
         Ok(file) => {
             let reader = BufReader::new(file);
