@@ -4,14 +4,14 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, BufReader, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::{ChildStdout, Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 
-const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
+const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Redirect {
@@ -203,11 +203,13 @@ fn longest_common_prefix(strings: &[String]) -> String {
 }
 
 fn main() {
+    let mut history_count = 0;
     loop {
         print!("\r$ ");
         io::stdout().flush().unwrap();
 
-        let input = read_inputs_keypress();
+        history_count += 1;
+        let input = read_inputs_keypress(history_count);
 
         // let pipeline_input: Vec<String> = input.split("|").map(|s| s.trim().to_string()).collect();
         // if pipeline_input.len() > 1 {
@@ -233,10 +235,10 @@ fn main() {
             match shell_command[0] {
                 "exit" => std::process::exit(0),
                 "echo" => echo_command(input.trim()),
-                // "type" => type_command(args),
                 "type" => type_command(input.trim()),
                 "pwd" => pwd_command(),
                 "cd" => cd_command(&args[0]),
+                "history" => history_command(),
                 _ => not_shell_builtin_command(input.trim()),
             }
         }
@@ -244,7 +246,7 @@ fn main() {
 }
 
 //Terminal Functions
-fn read_inputs_keypress() -> String {
+fn read_inputs_keypress(history_count: i32) -> String {
     enable_raw_mode().unwrap();
     let mut buffer = String::new();
     let mut tab_flip = false;
@@ -266,6 +268,12 @@ fn read_inputs_keypress() -> String {
                     ..
                 } => {
                     print!("\r\n");
+
+                    let formatted_buffer = format!("{} {}", history_count, buffer);
+                    handle_redirect_append(
+                        &String::from("history.txt"),
+                        formatted_buffer.as_bytes(),
+                    );
                     io::stdout().flush().unwrap();
                     break;
                 }
@@ -429,6 +437,19 @@ fn type_command(input: &str) {
         }
     }
     print!("{}: not found\n", args);
+}
+
+fn history_command() {
+    let file = File::open("history.txt");
+    match file {
+        Ok(file) => {
+            let mut buf_reader = BufReader::new(file);
+            let mut contents = String::new();
+            buf_reader.read_to_string(&mut contents).unwrap_or_default();
+            println!("{}", contents.trim());
+        }
+        Err(_) => eprint!("cant open file"),
+    }
 }
 
 //This is some of the worse code ever written. :)
