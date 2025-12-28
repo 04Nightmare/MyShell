@@ -4,7 +4,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::{ChildStdout, Command, Stdio};
@@ -202,7 +202,7 @@ fn longest_common_prefix(strings: &[String]) -> String {
     return prefix;
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let mut history_count = 0;
     loop {
         print!("\r$ ");
@@ -233,12 +233,15 @@ fn main() {
                 &shell_command[1..]
             };
             match shell_command[0] {
-                "exit" => std::process::exit(0),
+                "exit" => {
+                    fs::remove_file("/home/samannyo/history.txt")?;
+                    std::process::exit(0)
+                }
                 "echo" => echo_command(input.trim()),
                 "type" => type_command(input.trim()),
                 "pwd" => pwd_command(),
                 "cd" => cd_command(&args[0]),
-                "history" => history_command(),
+                "history" => history_command(&args[0]),
                 _ => not_shell_builtin_command(input.trim()),
             }
         }
@@ -268,10 +271,9 @@ fn read_inputs_keypress(history_count: i32) -> String {
                     ..
                 } => {
                     print!("\r\n");
-
                     let formatted_buffer = format!("{} {}", history_count, buffer);
                     handle_redirect_append(
-                        &String::from("history.txt"),
+                        &String::from("/home/samannyo/history.txt"),
                         formatted_buffer.as_bytes(),
                     );
                     io::stdout().flush().unwrap();
@@ -439,14 +441,32 @@ fn type_command(input: &str) {
     print!("{}: not found\n", args);
 }
 
-fn history_command() {
-    let file = File::open("history.txt");
+fn history_command(args: &str) {
+    let file = File::open("/home/samannyo/history.txt");
     match file {
         Ok(file) => {
-            let mut buf_reader = BufReader::new(file);
-            let mut contents = String::new();
-            buf_reader.read_to_string(&mut contents).unwrap_or_default();
-            println!("{}", contents.trim());
+            let reader = BufReader::new(file);
+            let lines: Vec<String> = reader.lines().flatten().collect();
+
+            if args.is_empty() {
+                for line in lines {
+                    println!("{}", line);
+                }
+                return;
+            }
+
+            let n: usize = match args.parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    eprintln!("History: {}: numeric argument needed", args);
+                    return;
+                }
+            };
+
+            let start_line = lines.len().saturating_sub(n);
+            for line in &lines[start_line..] {
+                println!("{}", line);
+            }
         }
         Err(_) => eprint!("cant open file"),
     }
