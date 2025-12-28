@@ -1,10 +1,9 @@
+#[allow(unused_imports)]
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::fs::{File, OpenOptions};
-use std::io::pipe;
-#[allow(unused_imports)]
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -232,9 +231,10 @@ fn main() {
                 &shell_command[1..]
             };
             match shell_command[0] {
-                "exit" => break,
+                "exit" => std::process::exit(0),
                 "echo" => echo_command(input.trim()),
-                "type" => type_command(args),
+                // "type" => type_command(args),
+                "type" => type_command(input.trim()),
                 "pwd" => pwd_command(),
                 "cd" => cd_command(&args[0]),
                 _ => not_shell_builtin_command(input.trim()),
@@ -416,17 +416,19 @@ fn echo_command(input: &str) {
     return;
 }
 
-fn type_command(args: &[&str]) {
-    if !args.is_empty() && BUILTIN_COMMANDS.contains(&args[0]) {
-        print!("{} is a shell builtin\n", args[0]);
+fn type_command(input: &str) {
+    let full_parsed_command = input_line_parsing(input);
+    let args = &full_parsed_command[1];
+    if !args.is_empty() && BUILTIN_COMMANDS.contains(&args.as_str()) {
+        print!("{} is a shell builtin\n", args);
         return;
     } else if !args.is_empty() {
-        if let Some(path) = find_executable_in_path(&args[0]) {
-            print!("{} is {}\n", args[0], path.display());
+        if let Some(path) = find_executable_in_path(&args) {
+            print!("{} is {}\n", args, path.display());
             return;
         }
     }
-    print!("{}: not found\n", args[0]);
+    print!("{}: not found\n", args);
 }
 
 //This is some of the worse code ever written. :)
@@ -559,25 +561,34 @@ fn pipe_command(input: &str) {
         if program.trim().is_empty() {
             return;
         }
-        let mut output = Command::new(program);
-        output.args(args);
-        if let Some(prev_stdout) = previous_stdout.take() {
-            output.stdin(Stdio::from(prev_stdout));
-        }
-        if cmd_string != &pipeline_input[pipeline_input_length - 1] {
-            output.stdout(Stdio::piped());
-        }
-
-        let mut child = match output.spawn() {
-            Ok(child) => child,
-            Err(_) => {
-                eprintln!("{}: command not found", parsed[0]);
-                return;
+        match program.trim() {
+            "type" => type_command(cmd_string),
+            "exit" => {
+                std::process::exit(0);
             }
-        };
+            "cd" => cd_command(program),
+            _ => {
+                let mut output = Command::new(program);
+                output.args(args);
+                if let Some(prev_stdout) = previous_stdout.take() {
+                    output.stdin(Stdio::from(prev_stdout));
+                }
+                if cmd_string != &pipeline_input[pipeline_input_length - 1] {
+                    output.stdout(Stdio::piped());
+                }
 
-        previous_stdout = child.stdout.take();
-        child_processes.push(child);
+                let mut child = match output.spawn() {
+                    Ok(child) => child,
+                    Err(_) => {
+                        eprintln!("{}: command not found", parsed[0]);
+                        return;
+                    }
+                };
+
+                previous_stdout = child.stdout.take();
+                child_processes.push(child);
+            }
+        }
     }
 
     for mut child in child_processes {
