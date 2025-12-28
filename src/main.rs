@@ -3,11 +3,12 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::fs::{File, OpenOptions};
+use std::io::pipe;
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::process::Command;
+use std::process::{ChildStdout, Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 
@@ -209,6 +210,17 @@ fn main() {
 
         let input = read_inputs_keypress();
 
+        // let pipeline_input: Vec<String> = input.split("|").map(|s| s.trim().to_string()).collect();
+        // if pipeline_input.len() > 1 {
+        //     println!("This is pipeline input");
+        //     continue;
+        // }
+
+        if input.contains("|") {
+            pipe_command(&input);
+            continue;
+        }
+
         let shell_command: Vec<&str> = input.trim().split_whitespace().collect();
         if shell_command.is_empty() {
             //println!("{}: command not found", input.trim());
@@ -263,6 +275,7 @@ fn read_inputs_keypress() -> String {
                     ..
                 } => {
                     if !buffer.is_empty() {
+                        tab_flip = false;
                         buffer.pop();
                         print!("\x1b[D\x1b[K");
                         io::stdout().flush().unwrap();
@@ -331,6 +344,7 @@ fn read_inputs_keypress() -> String {
                     modifiers: m,
                     ..
                 } if m.is_empty() || m == KeyModifiers::SHIFT => {
+                    tab_flip = false;
                     buffer.push(c);
                     print!("{}", c);
                     io::stdout().flush().unwrap();
@@ -341,9 +355,13 @@ fn read_inputs_keypress() -> String {
                     modifiers: KeyModifiers::CONTROL,
                     ..
                 } => {
-                    print!("^c\r\n");
-                    disable_raw_mode().unwrap();
-                    std::process::exit(0);
+                    tab_flip = false;
+                    print!("^C\r\n");
+                    buffer.clear();
+                    redraw_entire_line("$ ", &buffer);
+                    //disable_raw_mode().unwrap();
+                    //continue;
+                    //std::process::exit(0);
                 }
 
                 _ => {}
@@ -525,5 +543,44 @@ fn cd_command(ab_path: &str) {
             Ok(_) => {}
             Err(_) => print!("cd: {}: No such file or directory\n", ab_path),
         }
+    }
+}
+
+fn pipe_command(input: &str) {
+    let pipeline_input: Vec<String> = input.split("|").map(|s| s.trim().to_string()).collect();
+    let mut previous_stdout: Option<ChildStdout> = None;
+    let mut child_processes = Vec::new();
+    let pipeline_input_length = pipeline_input.len();
+    for cmd_string in &pipeline_input {
+        let parsed = input_line_parsing(cmd_string);
+        let Some((program, args)) = parsed.split_first() else {
+            return;
+        };
+        if program.trim().is_empty() {
+            return;
+        }
+        let mut output = Command::new(program);
+        output.args(args);
+        if let Some(prev_stdout) = previous_stdout.take() {
+            output.stdin(Stdio::from(prev_stdout));
+        }
+        if cmd_string != &pipeline_input[pipeline_input_length - 1] {
+            output.stdout(Stdio::piped());
+        }
+
+        let mut child = match output.spawn() {
+            Ok(child) => child,
+            Err(_) => {
+                eprintln!("{}: command not found", parsed[0]);
+                return;
+            }
+        };
+
+        previous_stdout = child.stdout.take();
+        child_processes.push(child);
+    }
+
+    for mut child in child_processes {
+        let _ = child.wait();
     }
 }
