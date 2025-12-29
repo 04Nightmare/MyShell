@@ -1,0 +1,6 @@
+1 echo hello
+2 echo lol
+3 echo goo
+4 echo l
+5 history
+6 exit

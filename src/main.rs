@@ -202,6 +202,21 @@ fn longest_common_prefix(strings: &[String]) -> String {
     return prefix;
 }
 
+fn fetch_history_commands(history_index: usize) -> Option<String> {
+    let file = File::open("history.txt");
+    match file {
+        Ok(file) => {
+            let reader = BufReader::new(file);
+            let lines: Vec<String> = reader.lines().flatten().collect();
+            let index = lines.len().checked_sub(history_index)?;
+            return lines.get(index).cloned();
+        }
+        Err(_) => {
+            return None;
+        }
+    }
+}
+
 fn main() -> std::io::Result<()> {
     let remove = fs::remove_file("history.txt");
     match remove {
@@ -255,6 +270,7 @@ fn read_inputs_keypress(history_count: i32) -> String {
     enable_raw_mode().unwrap();
     let mut buffer = String::new();
     let mut tab_flip = false;
+    let mut history_index = 0;
     loop {
         if let Event::Key(key) = event::read().unwrap() {
             match key {
@@ -292,6 +308,33 @@ fn read_inputs_keypress(history_count: i32) -> String {
                         print!("\x1b[D\x1b[K");
                         io::stdout().flush().unwrap();
                     }
+                }
+
+                KeyEvent {
+                    code: KeyCode::Up, ..
+                } => {
+                    history_index += 1;
+                    if let Some(mut his_buffer) = fetch_history_commands(history_index) {
+                        buffer = his_buffer.split_off(2);
+                        redraw_entire_line("$ ", &buffer);
+                    } else {
+                        history_index -= 1;
+                    }
+                }
+                KeyEvent {
+                    code: KeyCode::Down,
+                    ..
+                } => {
+                    if history_index == 0 {
+                        continue;
+                    }
+                    history_index -= 1;
+                    if history_index == 0 {
+                        buffer.clear();
+                    } else if let Some(mut his_buffer) = fetch_history_commands(history_index) {
+                        buffer = his_buffer.split_off(2);
+                    }
+                    redraw_entire_line("$ ", &buffer);
                 }
 
                 KeyEvent {
@@ -336,17 +379,6 @@ fn read_inputs_keypress(history_count: i32) -> String {
                                     tab_flip = false;
                                 }
                             }
-                            // if tab_flip == false {
-                            //     print!("\x07");
-                            //     redraw_entire_line("$ ", &buffer);
-                            //     tab_flip = true;
-                            //     continue;
-                            // }
-                            // print!("\r\n");
-                            // print_all_exec(string_vector);
-                            // redraw_entire_line("$ ", &buffer);
-                            // tab_flip = false;
-                            // continue;
                         }
                     }
                 }
@@ -371,6 +403,7 @@ fn read_inputs_keypress(history_count: i32) -> String {
                     print!("^C\r\n");
                     buffer.clear();
                     redraw_entire_line("$ ", &buffer);
+                    history_index = 0;
                     //disable_raw_mode().unwrap();
                     //continue;
                     //std::process::exit(0);
