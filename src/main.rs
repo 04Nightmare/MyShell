@@ -203,6 +203,11 @@ fn longest_common_prefix(strings: &[String]) -> String {
 }
 
 fn main() -> std::io::Result<()> {
+    let remove = fs::remove_file("history.txt");
+    match remove {
+        Ok(remove) => remove,
+        Err(_) => {}
+    }
     let mut history_count = 0;
     loop {
         print!("\r$ ");
@@ -233,10 +238,7 @@ fn main() -> std::io::Result<()> {
                 &shell_command[1..]
             };
             match shell_command[0] {
-                "exit" => {
-                    fs::remove_file("history.txt")?;
-                    std::process::exit(0)
-                }
+                "exit" => std::process::exit(0),
                 "echo" => echo_command(input.trim()),
                 "type" => type_command(input.trim()),
                 "pwd" => pwd_command(),
