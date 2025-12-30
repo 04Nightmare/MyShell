@@ -312,8 +312,9 @@ fn read_inputs_keypress() -> String {
                     ..
                 } => {
                     print!("\r\n");
-                    //let formatted_buffer = format!("{} {}", history_count, buffer);
-                    handle_redirect_append(&String::from("history.txt"), buffer.as_bytes());
+                    if !buffer.is_empty() {
+                        handle_redirect_append(&String::from("history.txt"), buffer.as_bytes());
+                    }
                     io::stdout().flush().unwrap();
                     break;
                 }
@@ -507,7 +508,7 @@ fn history_command(input: &str) {
 
             if args.is_empty() {
                 for (i, line) in lines.iter().enumerate() {
-                    println!("    {} {}", i + 1, line);
+                    println!("{} {}", i + 1, line);
                 }
                 return;
             }
@@ -582,11 +583,11 @@ fn history_command(input: &str) {
                             let mut strt_idx = start_line;
                             for line in lines[start_line..].iter() {
                                 strt_idx += 1;
-                                println!("    {} {}", strt_idx, line);
+                                println!("{} {}", strt_idx, line);
                             }
                         } else {
                             for (i, line) in lines.iter().enumerate() {
-                                println!("    {} {}", i + 1, line);
+                                println!("{} {}", i + 1, line);
                             }
                             return;
                         };
