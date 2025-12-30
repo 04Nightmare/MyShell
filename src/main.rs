@@ -545,6 +545,11 @@ fn history_command(input: &str) {
                             return;
                         }
                     }
+                    let remove = fs::remove_file("history.txt");
+                    match remove {
+                        Ok(remove) => remove,
+                        Err(_) => {}
+                    }
                 }
                 val => match val.parse::<usize>() {
                     Ok(n) => {
