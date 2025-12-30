@@ -223,6 +223,18 @@ fn main() -> std::io::Result<()> {
         Ok(remove) => remove,
         Err(_) => {}
     }
+    if let Ok(histfile) = std::env::var("HISTFILE") {
+        let file = File::open(histfile);
+        match file {
+            Ok(mut file) => {
+                let mut contents = String::new();
+                file.read_to_string(&mut contents).unwrap();
+                let temp = "history.txt".to_string();
+                handle_redirect(&temp, contents.as_bytes());
+            }
+            Err(_) => {}
+        }
+    }
     loop {
         print!("\r$ ");
         io::stdout().flush().unwrap();
@@ -482,7 +494,7 @@ fn history_command(input: &str) {
 
             if args.is_empty() {
                 for (i, line) in lines.iter().enumerate() {
-                    println!("{} {}", i + 1, line);
+                    println!("    {} {}", i + 1, line);
                 }
                 return;
             }
@@ -561,7 +573,7 @@ fn history_command(input: &str) {
                             }
                         } else {
                             for (i, line) in lines.iter().enumerate() {
-                                println!("{} {}", i + 1, line);
+                                println!("    {} {}", i + 1, line);
                             }
                             return;
                         };
