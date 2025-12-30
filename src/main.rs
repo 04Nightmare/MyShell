@@ -500,10 +500,10 @@ fn type_command(input: &str) {
 fn history_command(input: &str) {
     let parsed_history_commands = input_line_parsing(input);
     let args = &parsed_history_commands[1..];
-    let file = File::open("history.txt");
-    match file {
-        Ok(file) => {
-            let reader = BufReader::new(file);
+    let outer_file = File::open("history.txt");
+    match outer_file {
+        Ok(outer_file) => {
+            let reader = BufReader::new(outer_file);
             let lines: Vec<String> = reader.lines().flatten().collect();
 
             if args.is_empty() {
@@ -518,9 +518,9 @@ fn history_command(input: &str) {
 
             match args[0].as_str() {
                 "-r" => {
-                    if args.len() == 1 {
-                        return;
-                    }
+                    // if args.len() == 1 {
+                    //     return;
+                    // }
                     let file = File::open(&args[1]);
                     match file {
                         Ok(file) => {
@@ -528,7 +528,7 @@ fn history_command(input: &str) {
                             let mut buf_read = BufReader::new(file);
                             buf_read.read_to_string(&mut contents).unwrap();
                             let temp = "history.txt".to_string();
-                            handle_redirect_append(&temp, contents.as_bytes());
+                            handle_redirect(&temp, contents.as_bytes());
                         }
                         Err(_) => {
                             eprintln!("Cannot open file");
@@ -537,9 +537,9 @@ fn history_command(input: &str) {
                     }
                 }
                 "-w" => {
-                    if args.len() == 1 {
-                        return;
-                    }
+                    // if args.len() == 1 {
+                    //     return;
+                    // }
                     let file = File::open("history.txt");
                     match file {
                         Ok(file) => {
@@ -555,9 +555,9 @@ fn history_command(input: &str) {
                     }
                 }
                 "-a" => {
-                    if args.len() == 1 {
-                        return;
-                    }
+                    // if args.len() == 1 {
+                    //     return;
+                    // }
                     let file = File::open("history.txt");
                     match file {
                         Ok(file) => {
