@@ -503,8 +503,14 @@ fn history_command(input: &str) {
     let outer_file = File::open("history.txt");
     match outer_file {
         Ok(outer_file) => {
-            let reader = BufReader::new(outer_file);
-            let lines: Vec<String> = reader.lines().flatten().collect();
+            let mut reader = BufReader::new(outer_file);
+            let mut outer_contents = String::new();
+            reader.read_to_string(&mut outer_contents).unwrap();
+            let lines: Vec<String> = outer_contents
+                .trim()
+                .lines()
+                .map(|l| l.to_string())
+                .collect();
 
             if args.is_empty() {
                 for (i, line) in lines.iter().enumerate() {
@@ -512,9 +518,6 @@ fn history_command(input: &str) {
                 }
                 return;
             }
-            // if args.len() == 1 && !args[0].parse::<i32>().is_ok() {
-            //     return;
-            // }
 
             match args[0].as_str() {
                 "-r" => {
