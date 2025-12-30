@@ -486,12 +486,15 @@ fn history_command(input: &str) {
                 }
                 return;
             }
-            if args.len() == 1 {
-                return;
-            }
+            // if args.len() == 1 && !args[0].parse::<i32>().is_ok() {
+            //     return;
+            // }
 
             match args[0].as_str() {
                 "-r" => {
+                    if args.len() == 1 {
+                        return;
+                    }
                     let file = File::open(&args[1]);
                     match file {
                         Ok(file) => {
@@ -508,6 +511,9 @@ fn history_command(input: &str) {
                     }
                 }
                 "-w" => {
+                    if args.len() == 1 {
+                        return;
+                    }
                     let file = File::open("history.txt");
                     match file {
                         Ok(file) => {
@@ -523,6 +529,9 @@ fn history_command(input: &str) {
                     }
                 }
                 "-a" => {
+                    if args.len() == 1 {
+                        return;
+                    }
                     let file = File::open("history.txt");
                     match file {
                         Ok(file) => {
@@ -542,8 +551,8 @@ fn history_command(input: &str) {
                         if let Some(start_line) = lines.len().checked_sub(n) {
                             let mut strt_idx = start_line;
                             for line in lines[start_line..].iter() {
-                                println!("{} {}", strt_idx, line);
                                 strt_idx += 1;
+                                println!("    {} {}", strt_idx, line);
                             }
                         } else {
                             for (i, line) in lines.iter().enumerate() {

@@ -1,3 +1,8 @@
-echo new_command
-history -w goo
+echo hello
+echo lol
+echo apple
+history 3
+echo grape
+echo guava
+history 3
 exit
