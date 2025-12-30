@@ -514,7 +514,7 @@ fn history_command(input: &str) {
                             let mut buf_read = BufReader::new(file);
                             buf_read.read_to_string(&mut contents).unwrap();
                             let temp = "history.txt".to_string();
-                            handle_redirect_append(&temp, contents.as_bytes());
+                            handle_redirect(&temp, contents.as_bytes());
                         }
                         Err(_) => {
                             eprintln!("Cannot open file");
