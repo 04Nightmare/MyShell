@@ -4,7 +4,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 //use anyhow::Ok;
 use pathsearch::find_executable_in_path;
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::{ChildStdout, Command, Stdio};
@@ -223,13 +223,11 @@ fn main() -> std::io::Result<()> {
         Ok(remove) => remove,
         Err(_) => {}
     }
-    let mut history_count = 0;
     loop {
         print!("\r$ ");
         io::stdout().flush().unwrap();
 
-        history_count += 1;
-        let input = read_inputs_keypress(history_count);
+        let input = read_inputs_keypress();
 
         // let pipeline_input: Vec<String> = input.split("|").map(|s| s.trim().to_string()).collect();
         // if pipeline_input.len() > 1 {
@@ -258,7 +256,7 @@ fn main() -> std::io::Result<()> {
                 "type" => type_command(input.trim()),
                 "pwd" => pwd_command(),
                 "cd" => cd_command(&args[0]),
-                "history" => history_command(&args[0]),
+                "history" => history_command(input.trim()),
                 _ => not_shell_builtin_command(input.trim()),
             }
         }
@@ -266,7 +264,7 @@ fn main() -> std::io::Result<()> {
 }
 
 //Terminal Functions
-fn read_inputs_keypress(history_count: i32) -> String {
+fn read_inputs_keypress() -> String {
     enable_raw_mode().unwrap();
     let mut buffer = String::new();
     let mut tab_flip = false;
@@ -289,11 +287,8 @@ fn read_inputs_keypress(history_count: i32) -> String {
                     ..
                 } => {
                     print!("\r\n");
-                    let formatted_buffer = format!("{} {}", history_count, buffer);
-                    handle_redirect_append(
-                        &String::from("history.txt"),
-                        formatted_buffer.as_bytes(),
-                    );
+                    //let formatted_buffer = format!("{} {}", history_count, buffer);
+                    handle_redirect_append(&String::from("history.txt"), buffer.as_bytes());
                     io::stdout().flush().unwrap();
                     break;
                 }
@@ -314,8 +309,8 @@ fn read_inputs_keypress(history_count: i32) -> String {
                     code: KeyCode::Up, ..
                 } => {
                     history_index += 1;
-                    if let Some(mut his_buffer) = fetch_history_commands(history_index) {
-                        buffer = his_buffer.split_off(2);
+                    if let Some(his_buffer) = fetch_history_commands(history_index) {
+                        buffer = his_buffer;
                         redraw_entire_line("$ ", &buffer);
                     } else {
                         history_index -= 1;
@@ -331,8 +326,8 @@ fn read_inputs_keypress(history_count: i32) -> String {
                     history_index -= 1;
                     if history_index == 0 {
                         buffer.clear();
-                    } else if let Some(mut his_buffer) = fetch_history_commands(history_index) {
-                        buffer = his_buffer.split_off(2);
+                    } else if let Some(his_buffer) = fetch_history_commands(history_index) {
+                        buffer = his_buffer;
                     }
                     redraw_entire_line("$ ", &buffer);
                 }
@@ -476,7 +471,9 @@ fn type_command(input: &str) {
     print!("{}: not found\n", args);
 }
 
-fn history_command(args: &str) {
+fn history_command(input: &str) {
+    let parsed_history_commands = input_line_parsing(input);
+    let args = &parsed_history_commands[1..];
     let file = File::open("history.txt");
     match file {
         Ok(file) => {
@@ -484,23 +481,81 @@ fn history_command(args: &str) {
             let lines: Vec<String> = reader.lines().flatten().collect();
 
             if args.is_empty() {
-                for line in lines {
-                    println!("{}", line);
+                for (i, line) in lines.iter().enumerate() {
+                    println!("{} {}", i + 1, line);
                 }
                 return;
             }
+            if args.len() == 1 {
+                return;
+            }
 
-            let n: usize = match args.parse() {
-                Ok(n) => n,
-                Err(_) => {
-                    eprintln!("History: {}: numeric argument needed", args);
-                    return;
+            match args[0].as_str() {
+                "-r" => {
+                    let file = File::open(&args[1]);
+                    match file {
+                        Ok(file) => {
+                            let mut contents = String::new();
+                            let mut buf_read = BufReader::new(file);
+                            buf_read.read_to_string(&mut contents).unwrap();
+                            let temp = "history.txt".to_string();
+                            handle_redirect_append(&temp, contents.as_bytes());
+                        }
+                        Err(_) => {
+                            eprintln!("Cannot open file");
+                            return;
+                        }
+                    }
                 }
-            };
-
-            let start_line = lines.len().saturating_sub(n);
-            for line in &lines[start_line..] {
-                println!("{}", line);
+                "-w" => {
+                    let file = File::open("history.txt");
+                    match file {
+                        Ok(file) => {
+                            let mut contents = String::new();
+                            let mut buf_read = BufReader::new(file);
+                            buf_read.read_to_string(&mut contents).unwrap();
+                            handle_redirect(&args[1], contents.as_bytes());
+                        }
+                        Err(_) => {
+                            eprintln!("Cannot open file");
+                            return;
+                        }
+                    }
+                }
+                "-a" => {
+                    let file = File::open("history.txt");
+                    match file {
+                        Ok(file) => {
+                            let mut contents = String::new();
+                            let mut buf_read = BufReader::new(file);
+                            buf_read.read_to_string(&mut contents).unwrap();
+                            handle_redirect_append(&args[1], contents.as_bytes());
+                        }
+                        Err(_) => {
+                            eprintln!("Cannot open file");
+                            return;
+                        }
+                    }
+                }
+                val => match val.parse::<usize>() {
+                    Ok(n) => {
+                        if let Some(start_line) = lines.len().checked_sub(n) {
+                            let mut strt_idx = start_line;
+                            for line in lines[start_line..].iter() {
+                                println!("{} {}", strt_idx, line);
+                                strt_idx += 1;
+                            }
+                        } else {
+                            for (i, line) in lines.iter().enumerate() {
+                                println!("{} {}", i + 1, line);
+                            }
+                            return;
+                        };
+                    }
+                    Err(_) => {
+                        eprintln!("Unknown argument: {}", val);
+                    }
+                },
             }
         }
         Err(_) => eprint!("cant open file"),
