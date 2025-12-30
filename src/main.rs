@@ -263,7 +263,20 @@ fn main() -> std::io::Result<()> {
                 &shell_command[1..]
             };
             match shell_command[0] {
-                "exit" => std::process::exit(0),
+                "exit" => {
+                    if let Ok(histfile) = std::env::var("HISTFILE") {
+                        let file = File::open("history.txt");
+                        match file {
+                            Ok(mut file) => {
+                                let mut contents = String::new();
+                                file.read_to_string(&mut contents).unwrap();
+                                handle_redirect_append(&histfile, contents.as_bytes());
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                    std::process::exit(0)
+                }
                 "echo" => echo_command(input.trim()),
                 "type" => type_command(input.trim()),
                 "pwd" => pwd_command(),
