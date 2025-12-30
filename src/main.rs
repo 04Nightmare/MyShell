@@ -270,7 +270,7 @@ fn main() -> std::io::Result<()> {
                             Ok(mut file) => {
                                 let mut contents = String::new();
                                 file.read_to_string(&mut contents).unwrap();
-                                handle_redirect_append(&histfile, contents.as_bytes());
+                                handle_redirect(&histfile, contents.as_bytes());
                             }
                             Err(_) => {}
                         }
