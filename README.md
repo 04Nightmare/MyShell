@@ -1,35 +1,82 @@
 [![progress-banner](https://backend.codecrafters.io/progress/shell/29b15116-e721-4e6c-9194-75bdcccaa607)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+Guided by the team of [codecrafters.io](https://codecrafters.io)
+#  >< Rust Shell >< 
 
-This is a starting point for Rust solutions to the
-["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
+This project is a custom shell program implemented in **Rust**, designed to mimic basic shell operations in Unix/Linux systems. The shell supports essential features such as **basic built-in commands, external command execution, piping, redirection, autocomplete environment variable handling and history persistence**. 
 
-In this challenge, you'll build your own POSIX compliant shell that's capable of
-interpreting shell commands, running external programs and builtin commands like
-cd, pwd, echo and more. Along the way, you'll learn about shell command parsing,
-REPLs, builtin commands, and more.
+This project is developed **step-by-step** from scratch and helps in understanding *how shells work and how processes interact* with the operating system.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+---
 
-# Passing the first stage
+## ✨ Features
 
-The entry point for your `shell` implementation is in `src/main.rs`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
+### ✅ Core Command Execution
+- Execute external commands via `$PATH`
+- Built-in commands:
+  - `echo`
+  - `cd`
+  - `pwd`
+  - `type`
+  - `exit`
+  - `history`
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+---
+
+### 📜 History Management
+- In-memory command history
+- Plain-text history persistence (POSIX-style)
+- Supports:
+  - `history` — show full history
+  - `history N` — show last `N` entries (with correct numbering)
+  - `history -r FILE` — read history from file
+  - `history -w FILE` — write history to file
+  - `history -a FILE` — append new histories to file
+- Can accept `$HISTFILE` on startup
+- Closely matches **bash-style numbering and behavior for history display**
+
+---
+### ⏩ Redirection
+- Supports basic POSIX-style I/O redirection with correct file descriptor handling.
+- ✔️ Supported Operators:
+  - `> | 1>` — redirect **stdout** (overwrite)
+  - `>>` — redirect **stdout** (append)
+  - `2>` — redirect **stderr** (overwrite)
+  - `2>>` — redirect **stderr** (append)
+- Redirections are applied before command execution
+- Output files are created if they do not exist
+- Works with both **built-in** and **external** commands
+---
+
+### 🔗 Pipelines
+- Supports **multi-command pipelines**:
+  ```sh
+  cmd1 | cmd2 | cmd3 | ...
+
+
+## 🛠️ Installation
+### Clone the repository
 ```
-
-Time to move on to the next stage!
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `cargo (1.91)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+git clone (https://github.com/04Nightmare/MyShell.git)
+cd MyShell
+```
+### Compile Shell
+```
+cargo build
+```
+OR (for optimized build)
+```
+cargo build --release
+```
+### Run the shell
+```
+cargo run
+```
+Or run the release binary directly:
+```
+./target/release/codecrafters-shell
+```
+Add to path
+```
+sudo cp ./target/release/codecrafters-shell /usr/local/bin
+codecrafters-shell
+```
