@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use std::io::{self, Write};
 
@@ -16,6 +16,9 @@ pub fn read_inputs_keypress() -> String {
     let mut history_index = 0;
     loop {
         if let Event::Key(key) = event::read().unwrap() {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
             match key {
                 KeyEvent {
                     code: KeyCode::Enter,
