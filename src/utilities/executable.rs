@@ -1,4 +1,7 @@
-use std::{env, fs, os::unix::fs::PermissionsExt};
+use std::{env, fs};
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 pub fn get_path_directories() -> Vec<std::path::PathBuf> {
     return env::var_os("PATH")
@@ -11,7 +14,6 @@ pub fn get_path_directories() -> Vec<std::path::PathBuf> {
 
 pub fn find_executable(char_slice: &str) -> Vec<String> {
     let mut results = Vec::new();
-
     for dir in get_path_directories() {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -31,7 +33,22 @@ pub fn find_executable(char_slice: &str) -> Vec<String> {
 
 pub fn is_executable(path: &std::path::Path) -> bool {
     match fs::metadata(path) {
-        Ok(metadata) => metadata.is_file() && (metadata.permissions().mode() & 0o111 != 0),
+        Ok(metadata) => {
+            if !metadata.is_file() {
+                return false;
+            }
+            #[cfg(unix)]
+            {
+                metadata.permissions().mode() & 0o111 != 0
+            }
+            #[cfg(windows)]
+            {
+                matches!(
+                    path.extension().and_then(|e| e.to_str()),
+                    Some("exe" | "cmd" | "bat" | "com")
+                )
+            }
+        }
         Err(_) => false,
     }
 }
