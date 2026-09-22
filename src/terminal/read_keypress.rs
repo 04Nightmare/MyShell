@@ -6,8 +6,8 @@ use crate::auto_complete;
 use crate::terminal::draw_line::redraw_entire_line;
 use crate::utilities::executable::print_all_exec;
 use crate::utilities::history::fetch_history_commands;
+use crate::utilities::history::push_history;
 use crate::utilities::longest_prefix::longest_common_prefix;
-use crate::utilities::redirect::handle_redirect_append;
 
 pub fn read_inputs_keypress() -> String {
     enable_raw_mode().unwrap();
@@ -36,7 +36,7 @@ pub fn read_inputs_keypress() -> String {
                 } => {
                     print!("\r\n");
                     if !buffer.is_empty() {
-                        handle_redirect_append(&String::from("history.txt"), buffer.as_bytes());
+                        push_history(&buffer);
                     }
                     io::stdout().flush().unwrap();
                     break;

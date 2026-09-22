@@ -3,9 +3,7 @@ mod terminal;
 mod utilities;
 
 #[allow(unused_imports)]
-use std::fs;
-use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::process::{ChildStdout, Command, Stdio};
 
 //Shell Command Functions
@@ -29,6 +27,7 @@ fn pipe_command(input: &str) {
         match program.trim() {
             "type" => type_command(cmd_string),
             "exit" => {
+                persist_history_on_exit();
                 std::process::exit(0);
             }
             "cd" => cd_command(program),
@@ -66,7 +65,9 @@ use crate::terminal::read_keypress::read_inputs_keypress;
 
 //Utility Functions
 use crate::utilities::{
-    executable::find_executable, input_parser::input_line_parsing, redirect::handle_redirect,
+    executable::find_executable,
+    history::{init_history, persist_history_on_exit},
+    input_parser::input_line_parsing,
 };
 fn auto_complete(buffer: &str) -> (Option<String>, Vec<String>) {
     let command_matched: Vec<String> = BUILTIN_COMMANDS
@@ -91,23 +92,7 @@ const BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "histor
 
 //Main Shell entry.
 fn main() -> std::io::Result<()> {
-    let remove = fs::remove_file("history.txt");
-    match remove {
-        Ok(remove) => remove,
-        Err(_) => {}
-    }
-    if let Ok(histfile) = std::env::var("HISTFILE") {
-        let file = File::open(histfile);
-        match file {
-            Ok(mut file) => {
-                let mut contents = String::new();
-                file.read_to_string(&mut contents).unwrap();
-                let temp = "history.txt".to_string();
-                handle_redirect(&temp, contents.as_bytes());
-            }
-            Err(_) => {}
-        }
-    }
+    init_history();
     loop {
         print!("\r$ ");
         io::stdout().flush().unwrap();
@@ -131,17 +116,7 @@ fn main() -> std::io::Result<()> {
             };
             match shell_command[0] {
                 "exit" => {
-                    if let Ok(histfile) = std::env::var("HISTFILE") {
-                        let file = File::open("history.txt");
-                        match file {
-                            Ok(mut file) => {
-                                let mut contents = String::new();
-                                file.read_to_string(&mut contents).unwrap();
-                                handle_redirect(&histfile, contents.as_bytes());
-                            }
-                            Err(_) => {}
-                        }
-                    }
+                    persist_history_on_exit();
                     std::process::exit(0);
                 }
                 "echo" => echo_command(input.trim()),
